@@ -12,8 +12,10 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <netinet/in.h>
 
 #define BACKLOG 1 // the number of connections allowed on the incoming queue
+#define MAXDATASIZE 100 // max number of bytes we can get at once
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa) {
@@ -26,11 +28,12 @@ void *get_in_addr(struct sockaddr *sa) {
 
 int main(int argc, char *argv[]) {
     // listen on sock_fd, new connection on new_fd
-    int status, sockfd, new_fd;
+    int status, sockfd, new_fd, numbytes, client_action;
     struct addrinfo hints, *res, *p; // will point to the results
     struct sockaddr_storage their_addr; // connector's address info
+    char s[INET6_ADDRSTRLEN], msg[MAXDATASIZE], *ip_addr, *port;
+    uint16_t net_action, server_action;
     socklen_t addr_size;
-    char s[INET6_ADDRSTRLEN], *ip_addr, *port;
 
     if (argc != 3) {
         fprintf(stderr, "how to use it: %s <IP address> <port>\n", argv[0]);
@@ -57,9 +60,6 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
         
-        inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-        printf("client: attempting connection to %s\n", s);
-
 		if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 			perror("client: connect");
 			close(sockfd);
@@ -68,17 +68,46 @@ int main(int argc, char *argv[]) {
         break;
     }
 
+    freeaddrinfo(res); // free the linked-list
+
     if (p == NULL) {
 		fprintf(stderr, "client: failed to connect\n");
         exit(1);
 	}
 
-    inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-	printf("client: connected to %s\n", s);
+	printf("Conectado ao servidor.\n");
 
-    freeaddrinfo(res); // free the linked-list
+    do {
+        printf("Escolha sua ação:\n");
+        int result = scanf("%d", &client_action);
+
+        if (result == 0) {
+            printf("Ação inválida. Escolha entre 0 e 4.\n");
+            exit(1);
+        }
+
+        if (client_action < 0 | client_action > 4) {
+            printf("Ação inválida. Escolha entre 0 e 4.\n");
+            exit(1);
+        }
+
+        net_action = htons(client_action);
+
+        numbytes = send(sockfd, &net_action, sizeof(net_action), 0);
+        if (numbytes < 0) {
+            printf("Falhou ao enviar a mensagem.\n");
+            break;
+        }
+
+        numbytes = recv(sockfd, &server_action, sizeof(server_action), 0);
+        if (numbytes < 0) {
+            perror("recv");
+            break;
+        }
+        printf("Msg recebida: %d\n", ntohs(server_action));
+
+    } while(strcmp(msg, "tchau"));
 
     close(sockfd);
-
     return 0;
 }

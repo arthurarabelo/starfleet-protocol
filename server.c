@@ -12,8 +12,13 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <netinet/in.h>
+#include <time.h>
+
+#include "battle_message.h"
 
 #define BACKLOG 1 // the number of connections allowed on the incoming queue
+#define MAXDATASIZE 100 // max number of bytes we can get at once
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa) {
@@ -25,13 +30,16 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 int main(int argc, char *argv[]) {
+    srand(time(NULL));
+
     // listen on sock_fd, new connection on new_fd
-    int status, sockfd, new_fd;
+    int status, sockfd, new_fd, numbytes, server_action;
     struct addrinfo hints, *res, *p; // will point to the results
     struct sockaddr_storage their_addr; // connector's address info
-    char s[INET6_ADDRSTRLEN], *protocol, *port;
+    char s[INET6_ADDRSTRLEN], msg[MSG_SIZE], *protocol, *port;
+    uint16_t client_action;
     socklen_t addr_size;
-
+    
     if (argc != 3) {
         fprintf(stderr, "how to use it: %s <v4|v6> <port>\n", argv[0]);
         exit(1);
@@ -40,6 +48,9 @@ int main(int argc, char *argv[]) {
     protocol = argv[1];
     port = argv[2];
 
+    memset(&hints, 0, sizeof hints); // make sure the struct is empty
+    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets (fixed)
+    hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
     if(strcmp(protocol, "v4") == 0){
         hints.ai_family = AF_INET;
     } else if(strcmp(protocol, "v6") == 0){
@@ -47,10 +58,6 @@ int main(int argc, char *argv[]) {
     } else {
         hints.ai_family = AF_UNSPEC; // use IPv4 or IPv6, whichever
     }
-
-    memset(&hints, 0, sizeof hints); // make sure the struct is empty
-    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets (fixed)
-    hints.ai_flags = AI_PASSIVE;     // fill in my IP for me (don't actually need this, get the ip from command line)
 
     // res now points to a linked list of 1 or more struct addrinfos (in this case it will point just to one)
     if ((status = getaddrinfo(NULL, port, &hints, &res)) != 0) {
@@ -72,6 +79,8 @@ int main(int argc, char *argv[]) {
         break;
     }
 
+    freeaddrinfo(res); // free the linked-list
+
     if (p == NULL)  {
 		fprintf(stderr, "server: failed to bind\n");
 		exit(1);
@@ -82,24 +91,49 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-    printf("server: waiting for connections...\n");
-
-   while(1) {  // main accept() loop
-		addr_size = sizeof their_addr;
-		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
-		if (new_fd == -1) {
-			perror("accept");
-			continue;
-		}
-
+    
+    while (1) {
+        printf("server: waiting for connections...\n");
+        
+        addr_size = sizeof their_addr;
+        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+        if (new_fd == -1) {
+            perror("accept");
+            exit(1);
+        }
+        
         // converts clients IP addr to string    
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-		printf("server: got connection from %s\n", s);
+        printf("server: got connection from %s\n", s);
+
+        BattleMessage battlemsg = {0, 0, 0, 100, 100, 0, 0, ""};
+        get_message(&battlemsg);
+        
+        do {
+            numbytes = recv(new_fd, &client_action, sizeof(client_action), 0);
+            if (numbytes < 0) {
+                perror("recv");
+                break;
+            }
+
+            server_action = rand() % 5;
+
+            battlemsg.server_action = server_action;
+            battlemsg.client_action = client_action;
+
+            printf("Ação gerada: %d\n", server_action);
+
+            numbytes = send(new_fd, battlemsg.message, sizeof(battlemsg.message), 0);
+            if (numbytes < 0) {
+                perror("send");
+                exit(1);
+            }
+
+        } while(strcmp(msg, "tchau"));
 
         close(new_fd);
     }
-
-    freeaddrinfo(res); // free the linked-list
+    
     close(sockfd);
     return 0;
 }
