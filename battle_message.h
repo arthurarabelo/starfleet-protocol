@@ -4,6 +4,7 @@
 #define MSG_SIZE 256
 
 #include <stdio.h>
+#include "actions_combination.h"
 
 typedef enum {
     MSG_INIT,          // Boas-vindas
