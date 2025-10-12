@@ -14,8 +14,9 @@
 #include <signal.h>
 #include <netinet/in.h>
 
+#include "battle_message.h"
+
 #define BACKLOG 1 // the number of connections allowed on the incoming queue
-#define MAXDATASIZE 100 // max number of bytes we can get at once
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa) {
@@ -27,13 +28,10 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 int main(int argc, char *argv[]) {
-    // listen on sock_fd, new connection on new_fd
-    int status, sockfd, new_fd, numbytes, client_action;
+    int status, sockfd, numbytes, client_action, msg_type, round;
     struct addrinfo hints, *res, *p; // will point to the results
-    struct sockaddr_storage their_addr; // connector's address info
-    char s[INET6_ADDRSTRLEN], msg[MAXDATASIZE], *ip_addr, *port;
-    uint16_t net_action, server_action;
-    socklen_t addr_size;
+    char msg[MSG_SIZE], *ip_addr, *port;
+    uint16_t net_action, net_msg_type;
 
     if (argc != 3) {
         fprintf(stderr, "how to use it: %s <IP address> <port>\n", argv[0]);
@@ -75,38 +73,81 @@ int main(int argc, char *argv[]) {
         exit(1);
 	}
 
-	printf("Conectado ao servidor.\n");
+    round = 0;
+    msg_type = 0;
 
     do {
-        printf("Escolha sua ação:\n");
-        int result = scanf("%d", &client_action);
+        if(round < 2){
+            // receive MSG_INIT and MSG_ACTION_RES
+            numbytes = recv(sockfd, msg, MSG_SIZE, 0);
+            if (numbytes < 0) {
+                perror("recv");
+                break;
+            }
+            msg[MSG_SIZE - 1] = '\0';
+            printf("%s\n", msg);
+        } else {
+            printf("%s\n", "Digite sua ação:");
+            int result = scanf("%d", &client_action);
+            
+            // validate action input
+            if (result == 0) {
+                printf("Ação inválida. Escolha entre 0 e 4.\n");
+                continue;
+            }
+            if ((client_action < 0) | (client_action > 4)) {
+                printf("Ação inválida. Escolha entre 0 e 4.\n");
+                continue;
+            }
+            
+            net_action = htons(client_action);
 
-        if (result == 0) {
-            printf("Ação inválida. Escolha entre 0 e 4.\n");
-            exit(1);
+            // send the action to server
+            numbytes = send(sockfd, &net_action, sizeof(net_action), 0);
+            if (numbytes < 0) {
+                printf("Falhou ao enviar a mensagem.\n");
+                break;
+            }
+
+            // receive the type of the message
+            numbytes = recv(sockfd, &net_msg_type, sizeof(net_msg_type), 0);
+            if (numbytes < 0) {
+                perror("recv");
+                break;
+            }
+            msg_type = ntohs(net_msg_type);
+    
+            // receive the msg itself
+            numbytes = recv(sockfd, msg, MSG_SIZE, 0);
+            if (numbytes < 0) {
+                perror("recv");
+                break;
+            }
+            msg[MSG_SIZE - 1] = '\0';
+            printf("%s\n", msg);
         }
 
-        if (client_action < 0 | client_action > 4) {
-            printf("Ação inválida. Escolha entre 0 e 4.\n");
-            exit(1);
-        }
+        round++;
 
-        net_action = htons(client_action);
+    } while(msg_type < 5); // different from MSG_GAME_OVER and MSG_ESCAPE
 
-        numbytes = send(sockfd, &net_action, sizeof(net_action), 0);
-        if (numbytes < 0) {
-            printf("Falhou ao enviar a mensagem.\n");
-            break;
-        }
 
-        numbytes = recv(sockfd, &server_action, sizeof(server_action), 0);
-        if (numbytes < 0) {
-            perror("recv");
-            break;
-        }
-        printf("Msg recebida: %d\n", ntohs(server_action));
+    // receive the msg itself (game over)
+    numbytes = recv(sockfd, msg, MSG_SIZE, 0);
+    if (numbytes < 0) {
+        perror("recv");
+    }
+    msg[MSG_SIZE - 1] = '\0';
+    printf("%s\n", msg);
 
-    } while(strcmp(msg, "tchau"));
+    // receive the msg itself (inventory)
+    numbytes = recv(sockfd, msg, MSG_SIZE, 0);
+    if (numbytes < 0) {
+        perror("recv");
+    }
+    msg[MSG_SIZE - 1] = '\0';
+    printf("%s\n", msg);
+
 
     close(sockfd);
     return 0;

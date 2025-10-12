@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 200112L 
+#define _POSIX_C_SOURCE 200112L
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,9 +16,9 @@
 #include <time.h>
 
 #include "battle_message.h"
+#include "actions_combination.h"
 
 #define BACKLOG 1 // the number of connections allowed on the incoming queue
-#define MAXDATASIZE 100 // max number of bytes we can get at once
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa) {
@@ -36,8 +36,8 @@ int main(int argc, char *argv[]) {
     int status, sockfd, new_fd, numbytes, server_action;
     struct addrinfo hints, *res, *p; // will point to the results
     struct sockaddr_storage their_addr; // connector's address info
-    char s[INET6_ADDRSTRLEN], msg[MSG_SIZE], *protocol, *port;
-    uint16_t client_action;
+    char s[INET6_ADDRSTRLEN], end_of_round_msg[MSG_SIZE], *protocol, *port;
+    uint16_t client_action, net_type;
     socklen_t addr_size;
     
     if (argc != 3) {
@@ -90,7 +90,6 @@ int main(int argc, char *argv[]) {
 		perror("listen");
 		exit(1);
 	}
-
     
     while (1) {
         printf("server: waiting for connections...\n");
@@ -107,31 +106,104 @@ int main(int argc, char *argv[]) {
         printf("server: got connection from %s\n", s);
 
         BattleMessage battlemsg = {0, 0, 0, 100, 100, 0, 0, ""};
-        get_message(&battlemsg);
-        
+
+        int round = 0;
+        int game_over = 0;
+
         do {
-            numbytes = recv(new_fd, &client_action, sizeof(client_action), 0);
-            if (numbytes < 0) {
-                perror("recv");
-                break;
+            if(round < 2){
+                // send MSG_INIT and MSG_ACTION_RES
+                get_message(&battlemsg);
+                numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
+                if (numbytes < 0) {
+                    perror("send");
+                    exit(1);
+                }
+                battlemsg.type = 1;
+            } else {
+                // receive client action
+                numbytes = recv(new_fd, &client_action, sizeof(client_action), 0);
+                if (numbytes < 0) {
+                    perror("recv");
+                    break;
+                }
+                
+                // generate random action
+                server_action = rand() % 5;
+                
+                battlemsg.server_action = server_action;
+                battlemsg.client_action = ntohs(client_action);
+                
+                // calculate damage and torpedoes and shields
+                Combination result = combinations[battlemsg.client_action][battlemsg.server_action];
+                battlemsg.client_hp += result.client_damage;
+                battlemsg.server_hp += result.server_damage;
+                battlemsg.client_torpedoes += (battlemsg.client_action == 1);
+                battlemsg.client_shields += (battlemsg.client_action == 2);
+                battlemsg.type = 2;
+
+                if((battlemsg.server_action == 4) | (battlemsg.client_action == 4)){
+                    battlemsg.type = 6; // set MSG_ESCAPE
+                    get_message(&battlemsg);
+                } else {
+                    // build the message to sent at the end of the turn
+                    get_message(&battlemsg); // get MSG_ACTION_RES msg
+                    strcpy(end_of_round_msg, battlemsg.message);
+
+                    battlemsg.type = 3;
+                    get_message(&battlemsg); // get MSG_BATTLE_RESULT msg
+
+                    // concat the 2 messages
+                    strcat(end_of_round_msg, battlemsg.message);
+
+                    strcpy(battlemsg.message, end_of_round_msg);
+
+                    if((battlemsg.client_hp <= 0) | (battlemsg.server_hp <= 0)){
+                        game_over = 1;
+                        battlemsg.type = 5;
+                    }
+                }
+
+                // send the msg type
+                net_type = htons(battlemsg.type);
+                numbytes = send(new_fd, &net_type, sizeof(net_type), 0);
+                if (numbytes < 0) {
+                    perror("send");
+                    exit(1);
+                }
+    
+                // send the msg itself
+                numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
+                if (numbytes < 0) {
+                    perror("send");
+                    exit(1);
+                }
             }
 
-            server_action = rand() % 5;
+            round++;
 
-            battlemsg.server_action = server_action;
-            battlemsg.client_action = client_action;
+        } while(battlemsg.type < 6 && !game_over);
 
-            printf("Ação gerada: %d\n", server_action);
+        battlemsg.type = 5; // set the MSG_GAME_OVER
+        get_message(&battlemsg);
 
-            numbytes = send(new_fd, battlemsg.message, sizeof(battlemsg.message), 0);
-            if (numbytes < 0) {
-                perror("send");
-                exit(1);
-            }
+        numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
+        if (numbytes < 0) {
+            perror("send");
+            exit(1);
+        }
 
-        } while(strcmp(msg, "tchau"));
+        battlemsg.type = 4; // set the MSG_INVENTORY
+        get_message(&battlemsg);
+
+        numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
+        if (numbytes < 0) {
+            perror("send");
+            exit(1);
+        }
 
         close(new_fd);
+        break;
     }
     
     close(sockfd);
