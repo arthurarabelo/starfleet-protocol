@@ -105,15 +105,15 @@ int main(int argc, char *argv[]) {
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
         printf("server: got connection from %s\n", s);
 
-        BattleMessage battlemsg = {0, 0, 0, 100, 100, 0, 0, ""};
+        BattleMessage battlemsg = {0, 0, 0, 100, 100, 0, 0, 0, ""};
 
-        int round = 0;
+        int loop = 0;
         int game_over = 0;
 
         do {
-            if(round < 2){
+            if(loop < 2){
                 // send MSG_INIT and MSG_ACTION_RES
-                get_message(&battlemsg);
+                update_message(&battlemsg);
                 numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
                 if (numbytes < 0) {
                     perror("send");
@@ -144,14 +144,14 @@ int main(int argc, char *argv[]) {
 
                 if((battlemsg.server_action == 4) | (battlemsg.client_action == 4)){
                     battlemsg.type = 6; // set MSG_ESCAPE
-                    get_message(&battlemsg);
+                    update_message(&battlemsg);
                 } else {
                     // build the message to sent at the end of the turn
-                    get_message(&battlemsg); // get MSG_ACTION_RES msg
+                    update_message(&battlemsg); // get MSG_ACTION_RES msg
                     strcpy(end_of_round_msg, battlemsg.message);
 
                     battlemsg.type = 3;
-                    get_message(&battlemsg); // get MSG_BATTLE_RESULT msg
+                    update_message(&battlemsg); // get MSG_BATTLE_RESULT msg
 
                     // concat the 2 messages
                     strcat(end_of_round_msg, battlemsg.message);
@@ -178,14 +178,16 @@ int main(int argc, char *argv[]) {
                     perror("send");
                     exit(1);
                 }
+
+                battlemsg.n_rounds++;
             }
 
-            round++;
+            loop++;
 
         } while(battlemsg.type < 6 && !game_over);
 
         battlemsg.type = 5; // set the MSG_GAME_OVER
-        get_message(&battlemsg);
+        update_message(&battlemsg);
 
         numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
         if (numbytes < 0) {
@@ -194,7 +196,7 @@ int main(int argc, char *argv[]) {
         }
 
         battlemsg.type = 4; // set the MSG_INVENTORY
-        get_message(&battlemsg);
+        update_message(&battlemsg);
 
         numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
         if (numbytes < 0) {

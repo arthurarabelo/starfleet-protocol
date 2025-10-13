@@ -28,7 +28,7 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 int main(int argc, char *argv[]) {
-    int status, sockfd, numbytes, client_action, msg_type, round;
+    int status, sockfd, numbytes, client_action, msg_type;
     struct addrinfo hints, *res, *p; // will point to the results
     char msg[MSG_SIZE], *ip_addr, *port;
     uint16_t net_action, net_msg_type;
@@ -42,14 +42,13 @@ int main(int argc, char *argv[]) {
     port = argv[2];
     
     memset(&hints, 0, sizeof hints); // make sure the struct is empty
-    hints.ai_family = AF_UNSPEC;     // don't care IPv4 or IPv6 (AF_INET(v4) , AF_INET6(v6)) -> get it from command
+    hints.ai_family = AF_UNSPEC;     // don't care IPv4 or IPv6 (AF_INET(v4) , AF_INET6(v6))
     hints.ai_socktype = SOCK_STREAM; // TCP stream sockets (fixed)
     
     // servinfo now points to a linked list of 1 or more struct addrinfos (in this case it will point just to one)
     if ((status = getaddrinfo(ip_addr, port, &hints, &res)) != 0) {
         fprintf(stderr, "gai error: %s\n", gai_strerror(status));
         exit(1);
-        
     }
     
     for(p = res; p != NULL; p = p->ai_next){
@@ -73,11 +72,11 @@ int main(int argc, char *argv[]) {
         exit(1);
 	}
 
-    round = 0;
+    int loop = 0;
     msg_type = 0;
 
     do {
-        if(round < 2){
+        if(loop < 2){
             // receive MSG_INIT and MSG_ACTION_RES
             numbytes = recv(sockfd, msg, MSG_SIZE, 0);
             if (numbytes < 0) {
@@ -127,7 +126,7 @@ int main(int argc, char *argv[]) {
             printf("%s\n", msg);
         }
 
-        round++;
+        loop++;
 
     } while(msg_type < 5); // different from MSG_GAME_OVER and MSG_ESCAPE
 

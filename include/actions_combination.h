@@ -9,7 +9,6 @@
 typedef struct {
     int client_damage;
     int server_damage;
-    bool hyper_jump;
     char msg[MAXMSGSIZE];
 } Combination;
 

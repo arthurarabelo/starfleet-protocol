@@ -29,7 +29,7 @@ void get_score(char* buf, int client_hp, int server_hp){
     snprintf(buf, 32, "Você %d x %d Inimigo\n", client_hp, server_hp);
 }
 
-void get_message(BattleMessage* msg){
+void update_message(BattleMessage* msg){
     switch (msg->type) {
         case MSG_INIT:
             snprintf(msg->message, MSG_SIZE, "%s", "Conectado ao servidor.\nSua nave: SS-42 Voyager (HP: 100)\n");
@@ -48,7 +48,7 @@ void get_message(BattleMessage* msg){
             break;
         case MSG_INVENTORY:
             snprintf(msg->message, MSG_SIZE, 
-            "Inventário final: \n- HP restante: %d\n- Torpedos usados: %d\n- Escudos usados: %d\n", msg->client_hp, msg->client_torpedoes, msg->client_shields);
+            "Inventário final: \n- HP restante: %d\n- Torpedos usados: %d\n- Escudos usados: %d\n- Número de turnos: %d\n", msg->client_hp, msg->client_torpedoes, msg->client_shields, msg->n_rounds);
             break;
         case MSG_GAME_OVER:
             if(msg->client_hp <= 0 && msg->server_hp <= 0){

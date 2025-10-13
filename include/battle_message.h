@@ -24,10 +24,11 @@ typedef struct {
     int server_hp;
     int client_torpedoes;
     int client_shields;
+    int n_rounds;
     char message[MSG_SIZE];
 } BattleMessage;
 
-void get_message(BattleMessage* msg); // sets message to its value
+void update_message(BattleMessage* msg); // sets message to its value
 char* get_action_str(int type); // returns action string
 char* get_client_action_message(BattleMessage* msg); // gets client action string
 char* get_server_action_message(BattleMessage* msg); // gets server action string
