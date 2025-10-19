@@ -65,6 +65,10 @@ int main(int argc, char *argv[]) {
         int yes = 1;
         setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
 
+        // lose the pesky "Address already in use" error message
+        int yes=1;
+        setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
+
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 			close(sockfd);
 			perror("server: bind");
