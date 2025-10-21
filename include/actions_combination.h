@@ -4,11 +4,11 @@
 #define NUMBER_OF_ACTIONS 5
 #define MAXMSGSIZE 64
 
-#include <stdbool.h>
+#include <stdint.h>
 
 typedef struct {
-    int client_damage;
-    int server_damage;
+    uint32_t client_damage;
+    uint32_t server_damage;
     char msg[MAXMSGSIZE];
 } Combination;
 

@@ -1,21 +1,11 @@
 #define _POSIX_C_SOURCE 200112L
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <netinet/in.h>
 #include <time.h>
 
-#include "battle_message.h"
+#include "communication.h"
 #include "actions_combination.h"
 
 #define BACKLOG 1 // the number of connections allowed on the incoming queue
@@ -33,11 +23,11 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     // listen on sock_fd, new connection on new_fd
-    int status, sockfd, new_fd, numbytes, server_action;
+    int status, sockfd, new_fd;
     struct addrinfo hints, *res, *p; // will point to the results
     struct sockaddr_storage their_addr; // connector's address info
     char s[INET6_ADDRSTRLEN], end_of_round_msg[MSG_SIZE], *protocol, *port;
-    uint16_t client_action, net_type;
+    uint32_t server_action;
     socklen_t addr_size;
     
     if (argc != 3) {
@@ -69,7 +59,11 @@ int main(int argc, char *argv[]) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
 			perror("server: socket");
 			continue;
-		}
+		}	
+        
+        // lose the pesky "Address already in use" error message
+        int yes = 1;
+        setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 			close(sockfd);
@@ -105,7 +99,7 @@ int main(int argc, char *argv[]) {
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
         printf("server: got connection from %s\n", s);
 
-        BattleMessage battlemsg = {0, 0, 0, 100, 100, 0, 0, 0, ""};
+        BattleMessage battlemsg = {0, 0, 0, 100, 100, 0, 0, "", 0};
 
         int loop = 0;
         int game_over = 0;
@@ -114,25 +108,16 @@ int main(int argc, char *argv[]) {
             if(loop < 2){
                 // send MSG_INIT and MSG_ACTION_RES
                 update_message(&battlemsg);
-                numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
-                if (numbytes < 0) {
-                    perror("send");
-                    exit(1);
-                }
+                send_message(new_fd, &battlemsg);
                 battlemsg.type = 1;
             } else {
                 // receive client action
-                numbytes = recv(new_fd, &client_action, sizeof(client_action), 0);
-                if (numbytes < 0) {
-                    perror("recv");
-                    break;
-                }
+                receive_message(new_fd, &battlemsg);
                 
                 // generate random action
                 server_action = rand() % 5;
                 
                 battlemsg.server_action = server_action;
-                battlemsg.client_action = ntohs(client_action);
                 
                 // calculate damage and torpedoes and shields
                 Combination result = combinations[battlemsg.client_action][battlemsg.server_action];
@@ -164,22 +149,11 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
-                // send the msg type
-                net_type = htons(battlemsg.type);
-                numbytes = send(new_fd, &net_type, sizeof(net_type), 0);
-                if (numbytes < 0) {
-                    perror("send");
-                    exit(1);
-                }
-    
-                // send the msg itself
-                numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
-                if (numbytes < 0) {
-                    perror("send");
-                    exit(1);
-                }
-
                 battlemsg.n_rounds++;
+             
+                // send the msg type
+                send_message(new_fd, &battlemsg);
+
             }
 
             loop++;
@@ -189,20 +163,12 @@ int main(int argc, char *argv[]) {
         battlemsg.type = 5; // set the MSG_GAME_OVER
         update_message(&battlemsg);
 
-        numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
-        if (numbytes < 0) {
-            perror("send");
-            exit(1);
-        }
+        send_message(new_fd, &battlemsg);
 
         battlemsg.type = 4; // set the MSG_INVENTORY
         update_message(&battlemsg);
 
-        numbytes = send(new_fd, battlemsg.message, MSG_SIZE, 0);
-        if (numbytes < 0) {
-            perror("send");
-            exit(1);
-        }
+        send_message(new_fd, &battlemsg);
 
         close(new_fd);
         break;

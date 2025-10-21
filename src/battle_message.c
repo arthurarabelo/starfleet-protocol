@@ -1,6 +1,6 @@
 #include "battle_message.h"
 
-char* get_action_str(int type){
+char* get_action_str(uint32_t type){
     switch (type){
         case 0:
             return "Laser Attack";
@@ -25,8 +25,8 @@ char* get_server_action_message(BattleMessage* msg){
     return get_action_str(msg->server_action);
 }
 
-void get_score(char* buf, int client_hp, int server_hp){
-    snprintf(buf, 32, "Você %d x %d Inimigo\n", client_hp, server_hp);
+void get_score(char* buf, uint32_t client_hp, uint32_t server_hp){
+    snprintf(buf, 32, "Você %u x %u Inimigo\n", client_hp, server_hp);
 }
 
 void update_message(BattleMessage* msg){
