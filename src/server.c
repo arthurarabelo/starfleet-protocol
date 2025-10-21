@@ -154,6 +154,7 @@ int main(int argc, char *argv[]) {
                 // send the msg type
                 send_message(new_fd, &battlemsg);
             }
+			
             loop++;
 
         } while(battlemsg.type < 6 && !game_over);
