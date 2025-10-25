@@ -1,14 +1,14 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g -Iinclude
 
-SRC_DIR = .
+SRC_DIR = src
 BIN_DIR = bin
 INC_DIR = include
 
-CLIENT_SRC = $(SRC_DIR)/client.c $(SRC_DIR)/battle_message.c $(SRC_DIR)/actions_combination.c
-SERVER_SRC = $(SRC_DIR)/server.c $(SRC_DIR)/battle_message.c $(SRC_DIR)/actions_combination.c
+CLIENT_SRC = $(SRC_DIR)/client.c $(SRC_DIR)/battle_message.c $(SRC_DIR)/actions_combination.c $(SRC_DIR)/communication.c
+SERVER_SRC = $(SRC_DIR)/server.c $(SRC_DIR)/battle_message.c $(SRC_DIR)/actions_combination.c $(SRC_DIR)/communication.c
 
-HEADERS = $(INC_DIR)/battle_message.h $(INC_DIR)/actions_combination.h
+HEADERS =  $(INC_DIR)/communication.h $(INC_DIR)/battle_message.h $(INC_DIR)/actions_combination.h
 
 CLIENT_BIN = $(BIN_DIR)/client
 SERVER_BIN = $(BIN_DIR)/server
@@ -26,7 +26,3 @@ $(SERVER_BIN): $(SERVER_SRC) $(HEADERS)
 
 clean:
 	rm -rf $(BIN_DIR)
-
-rebuild: clean all
-
-.PHONY: all clean rebuild
