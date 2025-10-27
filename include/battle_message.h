@@ -17,21 +17,21 @@ typedef enum {
 } MessageType;
 
 typedef struct {
-    uint32_t type;
-    uint32_t client_action;
-    uint32_t server_action;
-    uint32_t client_hp;
-    uint32_t server_hp;
-    uint32_t client_torpedoes;
-    uint32_t client_shields;
+    int type;
+    int client_action;
+    int server_action;
+    int client_hp;
+    int server_hp;
+    int client_torpedoes;
+    int client_shields;
     char message[MSG_SIZE];
-    uint32_t n_rounds;
+    int n_rounds;
 } BattleMessage;
 
 void update_message(BattleMessage* msg); // sets message to its value
-char* get_action_str(uint32_t type); // returns action string
+char* get_action_str(int type); // returns action string
 char* get_client_action_message(BattleMessage* msg); // gets client action string
 char* get_server_action_message(BattleMessage* msg); // gets server action string
-void get_score(char* buf, uint32_t client_hp, uint32_t server_hp);
+void get_score(char* buf, int client_hp, int server_hp);
 
 #endif

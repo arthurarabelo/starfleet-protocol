@@ -7,8 +7,8 @@
 #include <stdint.h>
 
 typedef struct {
-    uint32_t client_damage;
-    uint32_t server_damage;
+    int client_damage;
+    int server_damage;
     char msg[MAXMSGSIZE];
 } Combination;
 

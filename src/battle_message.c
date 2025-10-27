@@ -1,6 +1,6 @@
 #include "battle_message.h"
 
-char* get_action_str(uint32_t type){
+char* get_action_str(int type){
     switch (type){
         case 0:
             return "Laser Attack";
@@ -25,7 +25,7 @@ char* get_server_action_message(BattleMessage* msg){
     return get_action_str(msg->server_action);
 }
 
-void get_score(char* buf, uint32_t client_hp, uint32_t server_hp){
+void get_score(char* buf, int client_hp, int server_hp){
     snprintf(buf, 32, "Você %u x %u Inimigo\n", client_hp, server_hp);
 }
 
@@ -48,7 +48,7 @@ void update_message(BattleMessage* msg){
             break;
         case MSG_INVENTORY:
             snprintf(msg->message, MSG_SIZE, 
-            "Inventário final: \n- HP restante: %d\n- Torpedos usados: %d\n- Escudos usados: %d\n- Número de turnos: %d\n", msg->client_hp, msg->client_torpedoes, msg->client_shields, msg->n_rounds);
+            "Inventário final: \n- HP restante: %d\n- HP inimigo: %d\n- Torpedos usados: %d\n- Escudos usados: %d\n- Número de turnos: %d\n" , msg->client_hp, msg->server_hp, msg->client_torpedoes, msg->client_shields, msg->n_rounds);
             break;
         case MSG_GAME_OVER:
             if(msg->client_hp <= 0 && msg->server_hp <= 0){

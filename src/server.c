@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     struct addrinfo hints, *res, *p; // will point to the results
     struct sockaddr_storage their_addr; // connector's address info
     char s[INET6_ADDRSTRLEN], end_of_round_msg[MSG_SIZE], *protocol, *port;
-    uint32_t server_action;
+    int server_action;
     socklen_t addr_size;
     
     if (argc != 3) {
